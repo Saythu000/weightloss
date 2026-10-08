@@ -3,6 +3,8 @@ import { parseDocumentBuffer } from '@/lib/doc-parser';
 import { ingestDocumentChunksAsync } from '@/lib/knowledge-store';
 import { analyzeDocumentSample } from '@/lib/domain-analyzer';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const response = await fetch(url, { headers: { 'User-Agent': 'DrGodlyRAGScraper/1.0' } });
+        const response = await fetch(url, { headers: { 'User-Agent': 'MotionSitesRAGScraper/1.0' } });
         const html = await response.text();
         const cleanText = html
           .replace(/<script\b[^<]*>([\s\S]*?)<\/script>/gi, '')

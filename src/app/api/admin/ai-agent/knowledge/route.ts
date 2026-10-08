@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getKnowledgeBaseAsync, addKnowledgeItemAsync, deleteKnowledgeItemAsync } from '@/lib/knowledge-store';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const items = await getKnowledgeBaseAsync();

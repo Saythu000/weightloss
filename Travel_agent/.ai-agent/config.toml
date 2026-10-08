@@ -1,0 +1,38 @@
+[agent]
+name = "Trekatour AI Sales & Operations Agent"
+version = "1.0.0"
+default_model = "gpt-4o-mini"
+temperature = 0.1
+max_tokens = 1000
+
+[mcp_servers.excel]
+command = "python3"
+args = ["-m", "mcp_server_excel"]
+env = { WORKSPACE = "." }
+
+[mcp_servers.twilio]
+command = "python3"
+args = ["-m", "mcp_server_twilio"]
+env = { TWILIO_ACCOUNT_SID = "", TWILIO_AUTH_TOKEN = "" }
+
+[mcp_servers.whatsapp]
+command = "python3"
+args = ["-m", "mcp_server_whatsapp"]
+env = { WHATSAPP_API_TOKEN = "" }
+
+[mcp_servers.razorpay]
+command = "python3"
+args = ["-m", "mcp_server_razorpay"]
+env = { RAZORPAY_KEY_ID = "", RAZORPAY_KEY_SECRET = "" }
+
+[hooks]
+enabled = true
+before_tool_log = true
+after_tool_log = true
+error_notify = true
+
+[rag]
+chunk_size = 700
+chunk_overlap = 100
+hybrid_search_alpha = 0.5
+vector_db = "chroma"

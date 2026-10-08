@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAgentConfig, saveAgentConfig } from '@/lib/agent-config';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const config = getAgentConfig();

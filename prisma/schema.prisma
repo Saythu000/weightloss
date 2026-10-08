@@ -1,18 +1,18 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model StaffUser {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String
-  role      String   @default("AGENT") // ADMIN, DOCTOR, AGENT
+  role      String   @default("AGENT")
   password  String
   createdAt DateTime @default(now())
 }
@@ -25,19 +25,19 @@ model Lead {
   bmi                 Float?
   healthFlags         Json?
   preferredMedication String?
-  category            String   @default("CUSTOMER") // CUSTOMER, PARTNERSHIP, RECRUITMENT, GENERAL
-  partnershipDetails  Json?
-  recruitmentDetails  Json?
-  paymentStatus       String   @default("UNPAID")   // UNPAID, PAID
-  appointmentSlot     String?
-  intakeStatus        String   @default("IN_PROGRESS") // IN_PROGRESS, DOCTOR_REVIEW, APPROVED, REJECTED, COMPLETED
+  intakeStatus        String   @default("IN_PROGRESS")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  appointmentSlot     String?
+  category            String   @default("CUSTOMER")
+  partnershipDetails  Json?
+  paymentStatus       String   @default("UNPAID")
+  recruitmentDetails  Json?
 }
 
 model ConnectedAccount {
   id                String    @id @default(uuid())
-  platform          String    // FACEBOOK, INSTAGRAM, LINKEDIN, YOUTUBE
+  platform          String
   accountName       String?
   externalAccountId String?
   accessToken       String
@@ -50,48 +50,48 @@ model ConnectedAccount {
 
 model MediaAsset {
   id        String      @id @default(uuid())
-  filename  String
   fileUrl   String
-  mimeType  String
   fileSize  BigInt
   createdAt DateTime    @default(now())
+  filename  String
+  mimeType  String
   PostDraft PostDraft[]
 }
 
 model PostDraft {
-  id             String        @id @default(uuid())
+  id             String       @id @default(uuid())
   title          String
   masterCaption  String
-  type           String        @default("ORGANIC") // ORGANIC, PAID
+  mediaAssetId   String?
+  createdAt      DateTime     @default(now())
   budget         Float?
   targetAudience String?
-  mediaAssetId   String?
-  mediaAsset     MediaAsset?   @relation(fields: [mediaAssetId], references: [id])
-  createdAt      DateTime      @default(now())
+  type           String       @default("ORGANIC")
+  mediaAsset     MediaAsset?  @relation(fields: [mediaAssetId], references: [id])
   PostTarget     PostTarget[]
   PublishJob     PublishJob[]
 }
 
 model PostTarget {
   id            String    @id @default(uuid())
+  platform      String
+  status        String    @default("READY")
+  customCaption String?
   draftId       String
   draft         PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  platform      String    // FACEBOOK, INSTAGRAM, LINKEDIN, YOUTUBE
-  customCaption String?
-  status        String    @default("READY")
 }
 
 model PublishJob {
   id           String    @id @default(uuid())
-  draftId      String
-  draft        PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  platform     String    // FACEBOOK, INSTAGRAM, LINKEDIN, YOUTUBE
-  jobStatus    String    @default("PENDING") // PENDING, PUBLISHING, SUCCESS, FAILED
+  jobStatus    String    @default("PENDING")
   attempts     Int       @default(0)
   externalUrl  String?
-  errorMessage String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  draftId      String
+  errorMessage String?
+  platform     String
+  draft        PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model WhatsappOrder {
@@ -129,31 +129,55 @@ model Intake {
 model Eligibility {
   id        String   @id @default(uuid())
   userId    String
-  status    String   // eligible, not_eligible
+  status    String
   reason    String?
   createdAt DateTime @default(now())
 }
 
 model KnowledgeBase {
-  id          String          @id @default(uuid())
-  title       String
-  category    String          @default("FAQ") // FAQ, MEDICAL_PROTOCOL, PRICING_POLICY, CLINIC_INFO
-  content     String
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  chunks      DocumentChunk[]
+  id        String          @id @default(uuid())
+  title     String
+  category  String          @default("FAQ")
+  content   String
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  chunks    DocumentChunk[]
 }
 
 model DocumentChunk {
   id              String        @id @default(uuid())
   knowledgeBaseId String
-  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   chunkIndex      Int
   chunkContent    String
   vectorEmbedding Json?
   createdAt       DateTime      @default(now())
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 }
 
+model DynamicIntakeQuestion {
+  id             String   @id @default(uuid())
+  stepOrder      Int      @unique
+  fieldKey       String   @unique
+  questionPrompt String
+  validationType String   @default("TEXT")
+  options        Json?
+  isMandatory    Boolean  @default(true)
+  isSkippable    Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
 
-
+model IntakeSession {
+  id                String   @id @default(uuid())
+  phoneNumber       String   @unique
+  leadId            String?
+  currentFieldKey   String?
+  collectedFields   Json     @default("{}")
+  status            String   @default("IN_PROGRESS")
+  isComplete        Boolean  @default(false)
+  interruptionCount Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

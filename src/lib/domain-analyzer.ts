@@ -11,15 +11,15 @@ export interface DomainProfile {
 }
 
 const DEFAULT_PROFILE: DomainProfile = {
-  companyName: 'DrGodly',
-  industryDomain: 'Doctor-Guided GLP-1 Weight Loss Treatment & Healthcare',
-  personaRole: 'DrGodly Clinical & Product Support Specialist',
-  primaryTopics: ['Semaglutide', 'GLP-1 Weight Loss', 'Doctor Assessment', 'Prescription Evaluation', 'Cold-Chain Delivery'],
+  companyName: 'MotionSites',
+  industryDomain: 'Enterprise AI Sales Workforce & Custom LLM Fine-Tuning',
+  personaRole: 'MotionSites Lead Qualification & Conversational AI Specialist',
+  primaryTopics: ['Voice AI <120ms Latency', 'WhatsApp Conversational Sales', 'RAG Knowledge Base', 'Enterprise LLM Fine-Tuning', 'CRM Lead Automation'],
   safetyGuidelines: [
-    'Prescriptions are mandatory and issued exclusively by licensed doctors.',
-    'Require medical assessment before recommending specific GLP-1 medications.',
-    'Express temperature-controlled cold-chain delivery (2°C to 8°C).',
-    'Customer support is available at +91 9346317790 from Mon-Sat.',
+    'Sub-120ms voice response latency for live sales calls.',
+    'Omnichannel CRM sync across Meta WhatsApp Business API and Retell AI.',
+    'Custom LLM Fine-Tuning for domain-specific Enterprise workflows.',
+    'Instant human escalation on high-value priority lead triggers.',
   ],
 };
 
@@ -69,16 +69,16 @@ export function analyzeDocumentSample(textSample: string): DomainProfile {
   const sampleLower = textSample.toLowerCase();
 
   // 1. Infer Company Name
-  let companyName = 'DrGodly';
+  let companyName = 'MotionSites';
   const companyMatch = textSample.match(/([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)?)\s+(?:Clinic|Services|Overview|Policy|Platform|Inc|Ltd|Healthcare|Bot|App|Store|Dealer)/);
   if (companyMatch && companyMatch[1]) {
     companyName = companyMatch[1].trim();
-  } else if (sampleLower.includes('drgodly')) {
-    companyName = 'DrGodly';
+  } else if (sampleLower.includes('motionsites')) {
+    companyName = 'MotionSites';
   }
 
   // 2. Infer Industry Domain & Persona Role
-  let industryDomain = 'Doctor-Guided GLP-1 Weight Loss Treatment & Healthcare';
+  let industryDomain = 'Enterprise AI Sales Workforce & Custom LLM Fine-Tuning';
   let personaRole = `${companyName} Support Specialist`;
   const topics: string[] = [];
   const safety: string[] = [];

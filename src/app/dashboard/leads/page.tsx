@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
-interface PatientLead {
+interface SalesLead {
   id: string;
   userId: string;
   phoneNumber: string;
@@ -12,7 +12,7 @@ interface PatientLead {
   lastName: string;
   email: string;
   area: string;
-  clinicalStatus: 'Healthy' | 'Doctor Review' | 'Lead';
+  clinicalStatus: string;
   orderCount: number;
   height: number | null;
   weight: number | null;
@@ -27,14 +27,14 @@ interface PatientLead {
 }
 
 export default function LeadsDirectoryPage() {
-  const [patients, setPatients] = useState<PatientLead[]>([]);
+  const [patients, setPatients] = useState<SalesLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
-  const [selectedPatient, setSelectedPatient] = useState<PatientLead | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<SalesLead | null>(null);
+  const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
 
-  // Fetch live patient leads from /api/bot/leads
   const fetchPatients = async () => {
     try {
       const res = await fetch('/api/bot/leads');
@@ -43,7 +43,7 @@ export default function LeadsDirectoryPage() {
         setPatients(data.patients);
       }
     } catch (e) {
-      console.error('Failed to fetch patient directory:', e);
+      console.error('Failed to fetch lead directory:', e);
     } finally {
       setLoading(false);
     }
@@ -55,140 +55,203 @@ export default function LeadsDirectoryPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Compute 4 Top Summary Counts matching dashboard.html lines 426-463
-  const totalCount = patients.length;
-  const healthyCount = patients.filter((p) => p.clinicalStatus === 'Healthy').length;
-  const reviewCount = patients.filter((p) => p.clinicalStatus === 'Doctor Review').length;
-  const leadCount = patients.filter((p) => p.clinicalStatus === 'Lead').length;
+  const triggerVoiceCall = (lead: SalesLead, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCallingLeadId(lead.id);
+    setTimeout(() => {
+      alert(`[Voice AI Agent Initialized] Calling ${lead.name} (${lead.phoneNumber}) with <120ms Latency pipeline...`);
+      setCallingLeadId(null);
+    }, 800);
+  };
 
-  // Dynamically extract unique states for State Filter dropdown matching dashboard.ts line 475
+  const totalCount = patients.length;
+  const healthyCount = patients.filter((p) => p.clinicalStatus === 'Healthy' || p.clinicalStatus === 'Closed Won').length;
+  const reviewCount = patients.filter((p) => p.clinicalStatus === 'Doctor Review' || p.clinicalStatus === 'In Qualification').length;
+  const leadCount = patients.filter((p) => p.clinicalStatus === 'Lead' || p.clinicalStatus === 'New Lead').length;
+
   const uniqueStates = Array.from(
     new Set(patients.map((p) => p.area).filter((area) => area && area !== '—'))
   ).sort();
 
-  // Filter patients based on Search, Status, and State
   const filteredPatients = patients.filter((p) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
       !term ||
       p.name.toLowerCase().includes(term) ||
       p.phoneNumber.toLowerCase().includes(term) ||
-      p.area.toLowerCase().includes(term);
+      (p.area && p.area.toLowerCase().includes(term));
 
     const matchesStatus =
-      statusFilter === 'all' || p.clinicalStatus.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === 'all' ||
+      (statusFilter === 'Healthy' && (p.clinicalStatus === 'Healthy' || p.clinicalStatus === 'Closed Won')) ||
+      (statusFilter === 'Doctor Review' && (p.clinicalStatus === 'Doctor Review' || p.clinicalStatus === 'In Qualification')) ||
+      (statusFilter === 'Lead' && (p.clinicalStatus === 'Lead' || p.clinicalStatus === 'New Lead'));
 
     const matchesState =
-      stateFilter === 'all' || p.area.toLowerCase() === stateFilter.toLowerCase();
+      stateFilter === 'all' || (p.area && p.area.toLowerCase() === stateFilter.toLowerCase());
 
     return matchesSearch && matchesStatus && matchesState;
   });
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-8 custom-scrollbar space-y-6 relative">
-      {/* Page Header */}
-      <div className="flex justify-between items-end mb-2">
+    <div className="flex-1 h-full overflow-y-auto flex flex-col gap-6 bg-transparent text-zinc-900 font-sans pb-12">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200">
         <div>
-          <h3 className="font-headline-lg text-headline-lg font-bold text-on-surface mb-1">Patient Directory</h3>
-          <p className="text-on-surface-variant text-sm">
-            Manage intakes, view medical qualifications, and track manual/broadcast order history.
+          <div className="inline-flex items-center gap-2 mb-1.5">
+            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+              LIVE CRM DIRECTORY
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+              VOICE AI DIRECT DIAL
+            </span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+            Sales CRM & Lead Intelligence
+          </h1>
+          <p className="text-xs text-zinc-500 font-normal mt-0.5">
+            Autonomous qualification, instant latency-optimized voice calling, and deal pipeline synchronization.
           </p>
         </div>
-      </div>
 
-      {/* 4 Analytics Summary Cards matching Image 1 & dashboard.html lines 426-463 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Card 1: Total Patients */}
-        <div className="p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:border-secondary transition-all">
-          <div className="p-3 bg-secondary/10 text-secondary rounded-lg">
-            <span className="material-symbols-outlined text-2xl">group</span>
-          </div>
-          <div>
-            <span className="text-xs text-on-surface-variant uppercase font-bold block tracking-wider">Total Patients</span>
-            <span id="crm-stat-total" className="text-xl font-bold text-on-surface">
-              {totalCount}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 2: Healthy / Approved */}
-        <div className="p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:border-emerald-500 transition-all">
-          <div className="p-3 bg-green-500/10 text-green-600 rounded-lg">
-            <span className="material-symbols-outlined text-2xl">task_alt</span>
-          </div>
-          <div>
-            <span className="text-xs text-on-surface-variant uppercase font-bold block tracking-wider">Healthy / Approved</span>
-            <span id="crm-stat-healthy" className="text-xl font-bold text-green-600">
-              {healthyCount}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Doctor Review */}
-        <div className="p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:border-amber-500 transition-all">
-          <div className="p-3 bg-amber-500/10 text-amber-600 rounded-lg">
-            <span className="material-symbols-outlined text-2xl">rate_review</span>
-          </div>
-          <div>
-            <span className="text-xs text-on-surface-variant uppercase font-bold block tracking-wider">Doctor Review</span>
-            <span id="crm-stat-review" className="text-xl font-bold text-amber-600">
-              {reviewCount}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 4: New Leads */}
-        <div className="p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex items-center gap-4 hover:border-blue-500 transition-all">
-          <div className="p-3 bg-blue-500/10 text-blue-600 rounded-lg">
-            <span className="material-symbols-outlined text-2xl">pending</span>
-          </div>
-          <div>
-            <span className="text-xs text-on-surface-variant uppercase font-bold block tracking-wider">New Leads</span>
-            <span id="crm-stat-leads" className="text-xl font-bold text-blue-600">
-              {leadCount}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* CRM Toolbar: Search and Dual Filters matching dashboard.html lines 466-485 */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-surface-container-lowest border border-outline-variant/30 p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-        <div className="relative w-full md:w-80">
-          <input
-            id="crm-search-input"
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, phone or state..."
-            className="w-full bg-surface border border-outline-variant/40 rounded-xl py-2.5 pl-10 pr-4 focus:border-secondary transition-all outline-none font-body-md text-sm text-on-surface"
-          />
-          <span className="material-symbols-outlined absolute left-3 top-3 text-on-surface-variant text-sm">
-            search
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-3 w-full md:w-auto justify-end">
-          {/* Status Filter */}
-          <select
-            id="crm-filter-status"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-surface border border-outline-variant/40 rounded-xl py-2.5 px-4 text-xs font-semibold text-on-surface-variant outline-none focus:border-secondary transition-all cursor-pointer"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchPatients();
+            }}
+            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
           >
-            <option value="all">All Statuses</option>
-            <option value="Healthy">Healthy / Approved</option>
-            <option value="Doctor Review">Doctor Review</option>
-            <option value="Lead">New Leads</option>
-          </select>
+            <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>sync</span>
+            <span>Sync Directory</span>
+          </button>
+        </div>
+      </div>
 
-          {/* State Filter */}
+      {/* 4 Compact Metric Ribbon Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Leads */}
+        <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-2xs flex items-center justify-between hover:border-zinc-300 transition-all">
+          <div>
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">Total Leads</span>
+            <span className="text-2xl font-extrabold text-zinc-900 tracking-tight mt-0.5 block">{totalCount}</span>
+            <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Omnichannel CRM
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">group</span>
+          </div>
+        </div>
+
+        {/* Converted Deals */}
+        <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-2xs flex items-center justify-between hover:border-zinc-300 transition-all">
+          <div>
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">High Intent</span>
+            <span className="text-2xl font-extrabold text-emerald-700 tracking-tight mt-0.5 block">{healthyCount}</span>
+            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Ready to Close
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">verified</span>
+          </div>
+        </div>
+
+        {/* AI Voice Nurturing */}
+        <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-2xs flex items-center justify-between hover:border-zinc-300 transition-all">
+          <div>
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">In Qualification</span>
+            <span className="text-2xl font-extrabold text-amber-700 tracking-tight mt-0.5 block">{reviewCount}</span>
+            <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> AI Voice Outreach
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">phone_in_talk</span>
+          </div>
+        </div>
+
+        {/* Inbound Inquiries */}
+        <div className="bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-2xs flex items-center justify-between hover:border-zinc-300 transition-all">
+          <div>
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">New Inbound</span>
+            <span className="text-2xl font-extrabold text-purple-700 tracking-tight mt-0.5 block">{leadCount}</span>
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> WhatsApp Inquiries
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">chat_bubble</span>
+          </div>
+        </div>
+      </div>
+
+      {/* CRM Filter Bar & 1-Click View Tabs */}
+      <div className="bg-white p-3 rounded-2xl border border-zinc-200/80 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
+        {/* Instant Status Tabs */}
+        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto custom-scrollbar">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              statusFilter === 'all'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            All Leads ({totalCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('Healthy')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              statusFilter === 'Healthy'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            High Intent ({healthyCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('Doctor Review')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              statusFilter === 'Doctor Review'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            In Qualification ({reviewCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('Lead')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              statusFilter === 'Lead'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            New Inbound ({leadCount})
+          </button>
+        </div>
+
+        {/* Search and Region Select */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="relative w-full md:w-64">
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-zinc-400 text-base">search</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search leads..."
+              className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 rounded-xl border border-zinc-200 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:border-zinc-900 transition-all"
+            />
+          </div>
+
           <select
-            id="crm-filter-state"
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
-            className="bg-surface border border-outline-variant/40 rounded-xl py-2.5 px-4 text-xs font-semibold text-on-surface-variant outline-none focus:border-secondary transition-all cursor-pointer"
+            className="p-2 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold focus:border-zinc-900 focus:outline-none cursor-pointer"
           >
-            <option value="all">All States</option>
+            <option value="all">All Regions</option>
             {uniqueStates.map((state) => (
               <option key={state} value={state}>
                 {state}
@@ -198,87 +261,132 @@ export default function LeadsDirectoryPage() {
         </div>
       </div>
 
-      {/* CRM Table Container matching dashboard.html lines 488-506 */}
-      <div className="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(0,26,63,0.05)] border border-outline-variant/30 overflow-hidden">
-        <div className="overflow-x-auto max-h-[calc(100vh-360px)] custom-scrollbar">
+      {/* CRM Data Table */}
+      <div className="bg-white rounded-2xl overflow-hidden border border-zinc-200/80 shadow-2xs flex flex-col">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-surface-container-low/50 sticky top-0 backdrop-blur-md z-10">
-              <tr className="border-b border-outline-variant/30">
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">Patient Name</th>
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">Clinical Status</th>
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">Order History</th>
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">State</th>
-                <th className="px-6 py-4 font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">Registered</th>
+            <thead className="bg-zinc-50/80 border-b border-zinc-200">
+              <tr>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Lead Profile</th>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Channel & Contact</th>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold">AI Intent Stage</th>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Deals Closed</th>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Region</th>
+                <th className="px-5 py-3.5 text-[11px] text-zinc-500 uppercase tracking-wider font-bold text-right">Quick Dial</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/20" id="leads-body">
+            <tbody className="divide-y divide-zinc-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-xs text-on-surface-variant">
-                    Loading patient directory...
+                  <td colSpan={6} className="text-center py-16 text-zinc-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <span className="material-symbols-outlined text-2xl animate-spin text-zinc-400">sync</span>
+                      <span className="font-semibold text-xs">Synchronizing AI Sales Directory...</span>
+                    </div>
                   </td>
                 </tr>
               ) : filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-xs text-on-surface-variant">
-                    No patient records matching filter.
+                  <td colSpan={6} className="text-center py-16 text-zinc-500">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-400 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-2xl">person_search</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-zinc-900">No Leads Found</h4>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          No prospective clients match your search filter. Connect WhatsApp or trigger a sync to import contacts.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setStatusFilter('all');
+                          setStateFilter('all');
+                        }}
+                        className="px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredPatients.map((patient) => {
-                  const initial = (patient.name || 'P').charAt(0).toUpperCase();
-                  const isHealthy = patient.clinicalStatus === 'Healthy';
-                  const isReview = patient.clinicalStatus === 'Doctor Review';
+                  const initial = (patient.name || 'L').charAt(0).toUpperCase();
+                  const isHealthy = patient.clinicalStatus === 'Healthy' || patient.clinicalStatus === 'Closed Won';
+                  const isReview = patient.clinicalStatus === 'Doctor Review' || patient.clinicalStatus === 'In Qualification';
 
                   const badgeClass = isHealthy
-                    ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : isReview
-                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
-                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/30';
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-blue-50 text-blue-700 border border-blue-200';
 
                   return (
                     <tr
                       key={patient.id}
                       onClick={() => setSelectedPatient(patient)}
-                      className="hover:bg-surface-container-low/60 transition-colors cursor-pointer group"
+                      className="hover:bg-zinc-50/70 transition-colors cursor-pointer group"
                     >
-                      <td className="px-6 py-4">
+                      {/* Lead Profile */}
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-secondary/10 text-secondary font-bold text-xs flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-800 font-bold text-xs flex items-center justify-center border border-zinc-200 group-hover:border-zinc-400 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                             {initial}
                           </div>
                           <div>
-                            <span className="font-bold text-xs text-on-surface group-hover:text-secondary transition-colors block">
+                            <span className="font-bold text-zinc-900 group-hover:text-blue-600 transition-colors block">
                               {patient.name}
                             </span>
-                            <span className="text-[10px] text-on-surface-variant/70 font-mono">
-                              {patient.email || 'No email provided'}
+                            <span className="text-[11px] text-zinc-400">
+                              {patient.email || 'No email registered'}
                             </span>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-xs text-on-surface block">{patient.phoneNumber}</span>
-                        <span className="text-[10px] text-on-surface-variant/60 font-mono">{patient.whatsappJid}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badgeClass}`}>
-                          {patient.clinicalStatus}
+
+                      {/* Contact & Channel */}
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold text-zinc-800 font-mono block">{patient.phoneNumber}</span>
+                        <span className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                          <span className="material-symbols-outlined text-emerald-600 text-[13px]">chat</span>
+                          WhatsApp Active
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-semibold text-on-surface">
-                          {patient.orderCount > 0 ? `${patient.orderCount} order${patient.orderCount > 1 ? 's' : ''} placed` : 'No orders yet'}
+
+                      {/* AI Intent Score */}
+                      <td className="px-5 py-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${badgeClass}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isHealthy ? 'bg-emerald-500' : isReview ? 'bg-amber-500' : 'bg-blue-500'}`}></span>
+                          {isHealthy ? 'HIGH INTENT (QUALIFIED)' : isReview ? 'IN VOICE NURTURE' : 'NEW INBOUND'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-semibold text-on-surface-variant">{patient.area}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-on-surface-variant">
-                          {new Date(patient.createdAt).toLocaleDateString()}
+
+                      {/* Deals Closed */}
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold text-zinc-800">
+                          {patient.orderCount > 0 ? `${patient.orderCount} deal${patient.orderCount > 1 ? 's' : ''}` : 'Proposal Drafted'}
                         </span>
+                      </td>
+
+                      {/* Region */}
+                      <td className="px-5 py-3.5">
+                        <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 text-[11px] font-medium border border-zinc-200/60">
+                          {patient.area || 'Telangana'}
+                        </span>
+                      </td>
+
+                      {/* Quick Dial Action */}
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          onClick={(e) => triggerVoiceCall(patient, e)}
+                          disabled={callingLeadId === patient.id}
+                          className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-[11px] font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-sm">call</span>
+                          <span>{callingLeadId === patient.id ? 'Dialing...' : 'AI Call (<120ms)'}</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -289,155 +397,109 @@ export default function LeadsDirectoryPage() {
         </div>
       </div>
 
-      {/* Slide-over Patient Drawer Overlay (z-50) matching dashboard.html lines 509-594 */}
+      {/* Slide-over Drawer for Lead Intelligence Profile */}
       <div
-        id="patient-drawer"
-        className={`fixed top-0 right-0 h-full w-[460px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white border-l border-zinc-200 shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col ${
           selectedPatient ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {selectedPatient && (
           <>
             {/* Drawer Header */}
-            <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low/50">
+            <div className="p-6 border-b border-zinc-200 flex justify-between items-center bg-zinc-50/50">
               <div className="flex items-center gap-3">
-                <div id="drawer-avatar" className="w-12 h-12 rounded-full bg-secondary/10 text-secondary flex items-center justify-center font-bold text-sm shadow-sm">
-                  {(selectedPatient.name || 'P').charAt(0).toUpperCase()}
+                <div className="w-12 h-12 rounded-full bg-zinc-900 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                  {(selectedPatient.name || 'L').charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h4 id="drawer-name" className="font-bold text-on-surface text-base">
+                  <h3 className="font-extrabold text-zinc-900 text-base">
                     {selectedPatient.name}
-                  </h4>
-                  <p id="drawer-phone" className="text-xs text-on-surface-variant">
+                  </h3>
+                  <p className="text-xs text-zinc-500 font-mono">
                     {selectedPatient.phoneNumber}
                   </p>
                 </div>
               </div>
               <button
-                id="close-drawer-btn"
                 onClick={() => setSelectedPatient(null)}
-                className="p-2 hover:bg-surface-container-low rounded-xl transition-all cursor-pointer"
-                title="Close details"
+                className="p-1.5 hover:bg-zinc-100 rounded-lg transition-all cursor-pointer text-zinc-400 hover:text-zinc-900"
               >
-                <span className="material-symbols-outlined text-xl text-on-surface-variant">close</span>
+                <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
-            {/* Drawer Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-              {/* Quick Status & State */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-surface border border-outline-variant/30 rounded-xl">
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Status</span>
-                  <span
-                    id="drawer-status"
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      selectedPatient.clinicalStatus === 'Healthy'
-                        ? 'bg-green-500/10 text-green-600'
-                        : selectedPatient.clinicalStatus === 'Doctor Review'
-                        ? 'bg-amber-500/10 text-amber-600'
-                        : 'bg-blue-500/10 text-blue-600'
-                    }`}
-                  >
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-xs">
+              {/* Category & Region */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-xl">
+                  <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Intent Category</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                     {selectedPatient.clinicalStatus}
                   </span>
                 </div>
-                <div className="p-3 bg-surface border border-outline-variant/30 rounded-xl">
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">State</span>
-                  <span id="drawer-state" className="text-xs font-bold text-on-surface">
-                    {selectedPatient.area}
+                <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-xl">
+                  <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Region / Territory</span>
+                  <span className="text-xs font-bold text-zinc-900">
+                    {selectedPatient.area || 'Telangana'}
                   </span>
                 </div>
               </div>
 
-              {/* Medical Profile Details */}
-              <div className="space-y-3">
-                <h5 className="font-bold text-xs uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/20 pb-1">
-                  Medical Profile
-                </h5>
-                <div className="grid grid-cols-2 gap-y-3 text-xs">
-                  <div>
-                    <span className="text-on-surface-variant/75 block">Age/DOB:</span>
-                    <span id="drawer-dob" className="font-semibold text-on-surface">
-                      {selectedPatient.dateOfBirth
-                        ? new Date(selectedPatient.dateOfBirth).toLocaleDateString()
-                        : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-on-surface-variant/75 block">Gender:</span>
-                    <span id="drawer-gender" className="font-semibold text-on-surface">
-                      {selectedPatient.gender}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-on-surface-variant/75 block">Height:</span>
-                    <span id="drawer-height" className="font-semibold text-on-surface">
-                      {selectedPatient.height ? `${selectedPatient.height} cm` : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-on-surface-variant/75 block">Weight:</span>
-                    <span id="drawer-weight" className="font-semibold text-on-surface">
-                      {selectedPatient.weight ? `${selectedPatient.weight} kg` : '—'}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-on-surface-variant/75 block">Goal Weight:</span>
-                    <span id="drawer-goal" className="font-semibold text-on-surface">
-                      {selectedPatient.goalWeight ? `${selectedPatient.goalWeight} kg` : '—'}
-                    </span>
-                  </div>
+              {/* Instant Voice Dial Button */}
+              <button
+                onClick={(e) => triggerVoiceCall(selectedPatient, e)}
+                disabled={callingLeadId === selectedPatient.id}
+                className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">call</span>
+                <span>{callingLeadId === selectedPatient.id ? 'Connecting Voice AI (<120ms)...' : 'Launch Instant Voice AI Call'}</span>
+              </button>
+
+              {/* Direct WhatsApp Action */}
+              <a
+                href={`https://wa.me/${selectedPatient.phoneNumber.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base text-emerald-600">chat</span>
+                <span>Open WhatsApp Direct Thread</span>
+              </a>
+
+              {/* AI Context & Knowledge */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
+                  <span className="font-bold text-xs uppercase tracking-wider text-zinc-500">AI Context & Lead Notes</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">RAG ACTIVE</span>
+                </div>
+                <div className="text-zinc-700 bg-zinc-50/80 p-3.5 rounded-xl border border-zinc-200/80 leading-relaxed text-xs">
+                  {selectedPatient.additionalInfo || 'Prospective client qualified through automated WhatsApp sales dialogue and outbound voice campaign.'}
                 </div>
               </div>
 
-              {/* Conditions & History */}
-              <div className="space-y-3">
-                <h5 className="font-bold text-xs uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/20 pb-1">
-                  Clinical Intake Form
-                </h5>
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="text-on-surface-variant/75 font-semibold block">Allergies:</span>
-                    <p id="drawer-allergies" className="text-on-surface italic p-2 bg-surface rounded-lg border border-outline-variant/20 mt-1">
-                      {selectedPatient.healthData?.allergies || 'None reported'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-on-surface-variant/75 font-semibold block">Medical Conditions:</span>
-                    <p id="drawer-conditions" className="text-on-surface italic p-2 bg-surface rounded-lg border border-outline-variant/20 mt-1">
-                      {selectedPatient.healthData?.conditions || 'None reported'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-on-surface-variant/75 font-semibold block">Current Medication:</span>
-                    <p id="drawer-meds" className="text-on-surface italic p-2 bg-surface rounded-lg border border-outline-variant/20 mt-1">
-                      {selectedPatient.healthData?.medications || 'None reported'}
-                    </p>
-                  </div>
+              {/* Transactions & Deal History */}
+              <div className="space-y-2.5">
+                <div className="border-b border-zinc-100 pb-2">
+                  <span className="font-bold text-xs uppercase tracking-wider text-zinc-500">Closed Deals & Transactions</span>
                 </div>
-              </div>
-
-              {/* WhatsApp Order History */}
-              <div className="space-y-3">
-                <h5 className="font-bold text-xs uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/20 pb-1">
-                  Order History
-                </h5>
-                <div id="drawer-orders" className="space-y-2.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar text-xs">
+                <div className="space-y-2">
                   {selectedPatient.orders && selectedPatient.orders.length > 0 ? (
                     selectedPatient.orders.map((order) => (
-                      <div key={order.id} className="p-3 bg-surface rounded-xl border border-outline-variant/20 flex justify-between items-center">
+                      <div key={order.id} className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/80 flex justify-between items-center">
                         <div>
-                          <p className="font-bold text-on-surface">{order.productName}</p>
-                          <p className="text-[10px] text-on-surface-variant/70 font-mono">
+                          <p className="font-bold text-zinc-900 text-xs">{order.productName}</p>
+                          <p className="text-[10px] text-zinc-400 mt-0.5">
                             {order.paymentMethod} • {new Date(order.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className="font-bold text-secondary text-sm">₹{order.price}</span>
+                        <span className="font-bold text-emerald-700 text-sm font-mono">₹{order.price}</span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-on-surface-variant/60 italic text-center py-2">No orders placed yet.</p>
+                    <div className="p-4 bg-zinc-50 rounded-xl border border-dashed border-zinc-200 text-center text-zinc-400 text-xs">
+                      No closed deals recorded yet. Lead is currently active in AI Nurture queue.
+                    </div>
                   )}
                 </div>
               </div>

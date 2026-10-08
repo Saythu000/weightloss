@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 /* --------------------------------- Types -------------------------------- */
 interface StageConfig {
@@ -62,18 +62,18 @@ export default function PipelinesPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Dropdown states
   const [pipeSelectOpen, setPipeSelectOpen] = useState(false);
-  const [pipeMenuOpen, setPipeMenuOpen] = useState(false);
 
   // Modals state
   const [dealModal, setDealModal] = useState<{ deal: DealCard | null; defaultStageId: string } | null>(null);
   const [pipelineModal, setPipelineModal] = useState<{ mode: 'create' | 'rename' } | null>(null);
   const [stagesModal, setStagesModal] = useState(false);
 
-  // Patient detail drawer state
-  const [selectedPatient, setSelectedPatient] = useState<DealCard | null>(null);
+  // Lead detail drawer state
+  const [selectedLead, setSelectedLead] = useState<DealCard | null>(null);
 
   // Drag and Drop State
   const [draggedDeal, setDraggedDeal] = useState<DealCard | null>(null);
@@ -137,46 +137,65 @@ export default function PipelinesPage() {
     }
   };
 
+  const filteredDeals = deals.filter((d) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      d.title.toLowerCase().includes(term) ||
+      (d.contactName && d.contactName.toLowerCase().includes(term)) ||
+      (d.assignedUserName && d.assignedUserName.toLowerCase().includes(term)) ||
+      (d.contactNumber && d.contactNumber.includes(term))
+    );
+  });
+
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center p-12 text-on-surface-variant font-sans">
-        <span className="material-symbols-outlined animate-spin text-3xl text-secondary mr-3">progress_activity</span>
-        <span className="font-semibold text-sm">Loading Pipelines & Kanban Board...</span>
+      <div className="flex-1 flex items-center justify-center p-12 text-zinc-500 font-sans">
+        <span className="material-symbols-outlined animate-spin text-3xl text-zinc-900 mr-3">sync</span>
+        <span className="font-semibold text-xs">Loading Sales Velocity Pipelines...</span>
       </div>
     );
   }
 
   return (
-    <main id="section-pipelines" className="flex-1 overflow-hidden p-8 flex flex-col bg-surface relative h-full">
-      {/* Header Banner & Multi-Pipeline Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="font-headline-sm text-xl font-bold text-on-surface tracking-tight flex items-center gap-2">
-              Clinical Patient Pipelines
-            </h1>
-            <p className="text-xs text-on-surface-variant/70 mt-0.5">
-              Multi-pipeline sales tracking, physician review workflow, and prescription dispatch
-            </p>
+    <main id="section-pipelines" className="flex-1 overflow-hidden p-6 sm:p-8 flex flex-col relative h-full text-zinc-900 bg-transparent font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0 pb-4 border-b border-zinc-200">
+        <div>
+          <div className="inline-flex items-center gap-2 mb-1.5">
+            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+              KANBAN VELOCITY
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+              AUTOMATED CLOSING
+            </span>
           </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
+            Sales & Deal Velocity Pipelines
+          </h1>
+          <p className="text-xs text-zinc-500 font-normal mt-0.5">
+            Multi-pipeline deal stages, drag-and-drop progression, and automated voice closing.
+          </p>
+        </div>
 
-          {/* Pipeline Selector Dropdown */}
+        {/* Pipeline Controls & Selector */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           {selectedPipeline && (
-            <div className="relative ml-2">
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setPipeSelectOpen((o) => !o)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs font-bold text-on-surface hover:bg-surface-container transition-all cursor-pointer shadow-sm"
+                className="flex items-center gap-2 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 hover:bg-zinc-50 transition-all cursor-pointer shadow-2xs"
               >
-                <span className="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>{selectedPipeline.name}</span>
-                <span className="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+                <span className="material-symbols-outlined text-sm text-zinc-400">expand_more</span>
               </button>
 
               {pipeSelectOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setPipeSelectOpen(false)} />
-                  <div className="absolute top-10 left-0 w-64 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50 py-1.5 space-y-0.5">
+                  <div className="absolute top-11 right-0 w-64 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 py-1.5 space-y-0.5 font-sans">
                     {pipelines.map((p) => (
                       <div
                         key={p.id}
@@ -185,12 +204,16 @@ export default function PipelinesPage() {
                           setPipeSelectOpen(false);
                           loadPipelineData(p.id);
                         }}
-                        className={`px-3.5 py-2 text-xs cursor-pointer flex items-center justify-between hover:bg-surface-container-high transition-colors ${
-                          p.id === selectedPipelineId ? 'font-bold text-secondary bg-surface-container-low' : 'text-on-surface font-medium'
+                        className={`px-4 py-2.5 text-xs cursor-pointer flex items-center justify-between hover:bg-zinc-50 transition-colors ${
+                          p.id === selectedPipelineId ? 'font-bold text-zinc-900 bg-zinc-50' : 'text-zinc-600'
                         }`}
                       >
                         <span>{p.name}</span>
-                        {p.isDefault && <span className="text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">default</span>}
+                        {p.isDefault && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">
+                            DEFAULT
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -198,170 +221,120 @@ export default function PipelinesPage() {
               )}
             </div>
           )}
-        </div>
 
-        {/* Pipeline Action Buttons */}
-        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setStagesModal(true)}
+            className="px-3.5 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-800 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          >
+            <span className="material-symbols-outlined text-sm text-zinc-500">view_column</span>
+            <span>Stages</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setPipelineModal({ mode: 'create' })}
-            className="px-3 py-1.5 bg-surface-container-high border border-outline-variant/30 hover:bg-surface-container text-on-surface rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-800 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
           >
-            <span className="material-symbols-outlined text-sm">add</span>
-            <span>Add Pipeline</span>
+            <span className="material-symbols-outlined text-sm text-zinc-500">add</span>
+            <span>New Pipeline</span>
           </button>
 
           <button
             type="button"
             onClick={() => setDealModal({ deal: null, defaultStageId: stages[0]?.id || '' })}
-            className="px-3.5 py-1.5 bg-secondary text-white hover:bg-secondary/90 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
-            <span className="material-symbols-outlined text-sm">add_card</span>
-            <span>+ Add Patient / Deal</span>
+            <span className="material-symbols-outlined text-sm">add</span>
+            <span>Add Deal</span>
           </button>
+        </div>
+      </div>
 
-          {/* More Options Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setPipeMenuOpen((o) => !o)}
-              className="p-1.5 bg-surface-container-high border border-outline-variant/30 hover:bg-surface-container text-on-surface rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center"
-              title="Pipeline settings"
-            >
-              <span className="material-symbols-outlined text-base">more_vert</span>
-            </button>
+      {/* Compact 4-Metric Ribbon */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5 shrink-0">
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Pipeline Value</span>
+            <span className="text-xl font-extrabold text-zinc-900 tracking-tight mt-0.5 block font-mono">
+              {fmtMoney(metrics?.pipelineValue || 0)}
+            </span>
+            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active Revenue
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">payments</span>
+          </div>
+        </div>
 
-            {pipeMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setPipeMenuOpen(false)} />
-                <div className="absolute top-10 right-0 w-48 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50 py-1.5 space-y-0.5">
-                  <div
-                    onClick={() => {
-                      setPipeMenuOpen(false);
-                      setStagesModal(true);
-                    }}
-                    className="px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-high cursor-pointer flex items-center gap-2 font-medium"
-                  >
-                    <span className="material-symbols-outlined text-sm text-secondary">tune</span>
-                    <span>Manage stages</span>
-                  </div>
-                  <div
-                    onClick={() => {
-                      setPipeMenuOpen(false);
-                      setPipelineModal({ mode: 'rename' });
-                    }}
-                    className="px-3.5 py-2 text-xs text-on-surface hover:bg-surface-container-high cursor-pointer flex items-center gap-2 font-medium"
-                  >
-                    <span className="material-symbols-outlined text-sm text-amber-600">edit</span>
-                    <span>Rename pipeline</span>
-                  </div>
-                  <div
-                    onClick={async () => {
-                      setPipeMenuOpen(false);
-                      if (!window.confirm('Wipe out all mock deals in this pipeline?')) return;
-                      try {
-                        const res = await fetch('/api/bot/pipelines', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ action: 'clear-all-deals' }),
-                        });
-                        const data = await res.json();
-                        if (data.success) loadPipelineData();
-                        else alert(data.error || 'Clear failed');
-                      } catch (e) {
-                        alert('Clear failed');
-                      }
-                    }}
-                    className="px-3.5 py-2 text-xs text-amber-700 hover:bg-amber-500/10 cursor-pointer flex items-center gap-2 font-medium border-t border-outline-variant/20 mt-1"
-                  >
-                    <span className="material-symbols-outlined text-sm">cleaning_services</span>
-                    <span>Clear all mock deals</span>
-                  </div>
-                  <div
-                    onClick={async () => {
-                      setPipeMenuOpen(false);
-                      if (!selectedPipeline) return;
-                      if (!window.confirm(`Delete pipeline "${selectedPipeline.name}" and all its deals?`)) return;
-                      try {
-                        const res = await fetch('/api/bot/pipelines', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ action: 'delete-pipeline', pipelineId: selectedPipeline.id }),
-                        });
-                        const data = await res.json();
-                        if (data.success) loadPipelineData();
-                        else alert(data.error || 'Delete failed');
-                      } catch (e) {
-                        alert('Delete failed');
-                      }
-                    }}
-                    className="px-3.5 py-2 text-xs text-error hover:bg-error/10 cursor-pointer flex items-center gap-2 font-semibold border-t border-outline-variant/20 mt-1"
-                  >
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                    <span>Delete pipeline</span>
-                  </div>
-                </div>
-              </>
-            )}
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Active Deals</span>
+            <span className="text-xl font-extrabold text-zinc-900 tracking-tight mt-0.5 block font-mono">
+              {metrics?.totalDeals ?? deals.length}
+            </span>
+            <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> In Progress
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">view_kanban</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Avg Deal Size</span>
+            <span className="text-xl font-extrabold text-zinc-900 tracking-tight mt-0.5 block font-mono">
+              {fmtMoney(metrics?.avgDealSize || 0)}
+            </span>
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Per Opportunity
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">trending_up</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Won Deals</span>
+            <span className="text-xl font-extrabold text-emerald-700 tracking-tight mt-0.5 block font-mono">
+              {metrics?.wonThisMonth ?? 0}
+            </span>
+            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Closed This Month
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">verified</span>
           </div>
         </div>
       </div>
 
-      {/* Top 6 KPI Analytics Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6 shrink-0">
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-blue-500">bar_chart</span>
-            <span>Total Deals</span>
-          </div>
-          <div className="text-xl font-extrabold text-on-surface font-mono">{metrics?.totalDeals ?? deals.length}</div>
+      {/* Toolbar Search Input */}
+      <div className="bg-white p-3 rounded-2xl border border-zinc-200/80 shadow-2xs mb-4 flex items-center justify-between gap-3 shrink-0">
+        <div className="relative w-full sm:w-80">
+          <span className="material-symbols-outlined absolute left-3 top-2 text-zinc-400 text-base">search</span>
+          <input
+            type="text"
+            placeholder="Search deals, contacts, or reps..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 rounded-xl border border-zinc-200 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:border-zinc-900 transition-all"
+          />
         </div>
-
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-emerald-500">account_balance_wallet</span>
-            <span>Pipeline Value</span>
-          </div>
-          <div className="text-xl font-extrabold text-on-surface font-mono">{fmtMoney(metrics?.pipelineValue || 0)}</div>
-        </div>
-
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-amber-500">ads_click</span>
-            <span>Avg Deal Size</span>
-          </div>
-          <div className="text-xl font-extrabold text-on-surface font-mono">{fmtMoney(metrics?.avgDealSize || 0)}</div>
-        </div>
-
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-purple-500">trending_up</span>
-            <span>Weighted Value</span>
-          </div>
-          <div className="text-xl font-extrabold text-on-surface font-mono">{fmtMoney(metrics?.weightedValue || 0)}</div>
-        </div>
-
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-teal-500">emoji_events</span>
-            <span>Won This Month</span>
-          </div>
-          <div className="text-xl font-extrabold text-teal-600 font-mono">{metrics?.wonThisMonth ?? 0}</div>
-        </div>
-
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3.5 shadow-sm">
-          <div className="flex items-center gap-1.5 text-on-surface-variant/70 text-[10px] font-bold uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-sm text-red-500">cancel</span>
-            <span>Lost This Month</span>
-          </div>
-          <div className="text-xl font-extrabold text-error font-mono">{metrics?.lostThisMonth ?? 0}</div>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+          <span>{filteredDeals.length} deals shown</span>
         </div>
       </div>
 
-      {/* HTML5 Drag & Drop Kanban Grid */}
-      <div className="flex-1 flex gap-4 overflow-x-auto pb-6 custom-scrollbar min-h-0 items-start">
+      {/* Drag & Drop Kanban Grid */}
+      <div className="flex-1 flex gap-4 overflow-x-auto pb-4 custom-scrollbar min-h-0 items-start">
         {stages.map((stage) => {
-          const stageDeals = deals.filter((d) => d.stageId === stage.id);
+          const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
           const totalVal = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
           const isOver = dragOverStageId === stage.id;
 
@@ -374,34 +347,36 @@ export default function PipelinesPage() {
               }}
               onDragLeave={() => setDragOverStageId((curr) => (curr === stage.id ? null : curr))}
               onDrop={() => handleDropToStage(stage.id)}
-              className={`w-[290px] shrink-0 bg-surface-container-lowest border rounded-2xl flex flex-col max-h-full transition-all shadow-sm ${
-                isOver ? 'border-secondary ring-2 ring-secondary/20 scale-[1.01]' : 'border-outline-variant/30'
+              className={`w-[300px] shrink-0 bg-white border rounded-2xl flex flex-col max-h-full transition-all shadow-2xs ${
+                isOver ? 'border-zinc-900 ring-2 ring-zinc-900/10 scale-[1.01]' : 'border-zinc-200/80'
               }`}
-              style={{ borderTop: `3px solid ${stage.color || '#64748B'}` }}
+              style={{ borderTop: `3px solid ${stage.color || '#18181b'}` }}
             >
               {/* Column Header */}
-              <div className="p-3.5 border-b border-outline-variant/20">
+              <div className="p-3.5 border-b border-zinc-100 bg-zinc-50/50 rounded-t-2xl">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-xs text-on-surface tracking-wide">{stage.name}</span>
-                  <span className="text-[11px] font-bold bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">
+                  <span className="font-bold text-xs text-zinc-900 tracking-tight">{stage.name}</span>
+                  <span className="text-[10px] font-bold bg-white border border-zinc-200 px-2 py-0.5 rounded-full text-zinc-600 shadow-2xs">
                     {stageDeals.length}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] font-semibold text-on-surface-variant/70">
-                  <span>{fmtMoney(totalVal)}</span>
-                  <span className="font-mono text-[10px]">{stage.probability}% win</span>
+                <div className="flex items-center justify-between text-[11px] font-medium text-zinc-500">
+                  <span className="font-mono font-semibold text-zinc-800">{fmtMoney(totalVal)}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600">
+                    {stage.probability}% win
+                  </span>
                 </div>
               </div>
 
               {/* Deals List */}
-              <div className="p-2.5 overflow-y-auto flex-1 min-h-[140px] space-y-2.5 custom-scrollbar">
+              <div className="p-2.5 overflow-y-auto flex-1 min-h-[160px] space-y-2.5 custom-scrollbar">
                 {stageDeals.length === 0 ? (
                   <div
-                    className={`p-6 text-center text-xs text-on-surface-variant/40 italic border border-dashed rounded-xl transition-all ${
-                      isOver ? 'border-secondary bg-secondary/5 text-secondary' : 'border-outline-variant/20'
+                    className={`p-6 text-center text-xs text-zinc-400 italic border border-dashed rounded-xl transition-all ${
+                      isOver ? 'border-zinc-900 bg-zinc-100/50 text-zinc-700' : 'border-zinc-200'
                     }`}
                   >
-                    Drop a deal card here
+                    Drop deal card here
                   </div>
                 ) : (
                   stageDeals.map((deal) => (
@@ -409,30 +384,30 @@ export default function PipelinesPage() {
                       key={deal.id}
                       draggable
                       onDragStart={() => setDraggedDeal(deal)}
-                      onClick={() => setSelectedPatient(deal)}
-                      className="bg-surface border border-outline-variant/30 hover:border-secondary rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 cursor-pointer group"
+                      onClick={() => setSelectedLead(deal)}
+                      className="bg-white border border-zinc-200/80 hover:border-zinc-400 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition-all space-y-2.5 cursor-pointer group"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-bold text-xs text-on-surface group-hover:text-secondary transition-colors line-clamp-1">
+                        <span className="font-bold text-xs text-zinc-900 group-hover:text-blue-600 transition-colors line-clamp-1">
                           {deal.title}
                         </span>
-                        <span className="material-symbols-outlined text-sm text-on-surface-variant/40 shrink-0 cursor-grab">
+                        <span className="material-symbols-outlined text-sm text-zinc-400 shrink-0 cursor-grab opacity-60 group-hover:opacity-100">
                           drag_indicator
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="font-bold font-mono text-xs text-emerald-600">{fmtMoney(deal.value)}</span>
+                        <span className="font-bold text-xs text-zinc-900 font-mono">{fmtMoney(deal.value)}</span>
                         {deal.assignedUserName && (
-                          <span className="text-[9px] font-bold px-2 py-0.5 bg-purple-500/10 text-purple-600 border border-purple-500/20 rounded-full">
+                          <span className="text-[9px] font-bold px-2 py-0.5 bg-zinc-100 text-zinc-600 border border-zinc-200 rounded-md">
                             {deal.assignedUserName}
                           </span>
                         )}
                       </div>
 
                       {deal.contactName && (
-                        <div className="text-[11px] text-on-surface-variant/80 flex items-center gap-1 font-medium">
-                          <span className="material-symbols-outlined text-xs text-secondary">person</span>
+                        <div className="text-[11px] text-zinc-500 flex items-center gap-1 font-medium pt-1 border-t border-zinc-100">
+                          <span className="material-symbols-outlined text-xs text-zinc-400">person</span>
                           <span className="truncate">{deal.contactName}</span>
                         </div>
                       )}
@@ -442,13 +417,13 @@ export default function PipelinesPage() {
               </div>
 
               {/* Column Footer */}
-              <div className="p-2 border-t border-outline-variant/20">
+              <div className="p-2 border-t border-zinc-100 bg-zinc-50/50 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setDealModal({ deal: null, defaultStageId: stage.id })}
-                  className="w-full py-1.5 text-xs text-on-surface-variant/70 hover:text-secondary hover:bg-surface-container font-semibold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  className="w-full py-1.5 text-xs text-zinc-500 hover:text-zinc-900 hover:bg-white font-semibold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-sm">add</span>
+                  <span className="material-symbols-outlined text-sm text-zinc-400">add</span>
                   <span>Add Deal</span>
                 </button>
               </div>
@@ -457,77 +432,77 @@ export default function PipelinesPage() {
         })}
       </div>
 
-      {/* Slide-over Patient Drawer Overlay */}
+      {/* Slide-over Lead Drawer Overlay */}
       <div
-        id="patient-drawer"
-        className={`fixed top-0 right-0 h-full w-[460px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col ${
-          selectedPatient ? 'translate-x-0' : 'translate-x-full'
+        id="lead-drawer"
+        className={`fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white border-l border-zinc-200 shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col ${
+          selectedLead ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {selectedPatient && (
+        {selectedLead && (
           <>
             {/* Drawer Header */}
-            <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low/50">
+            <div className="p-6 border-b border-zinc-200 flex justify-between items-center bg-zinc-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-secondary/10 text-secondary flex items-center justify-center font-bold text-sm shadow-sm">
-                  {(selectedPatient.contactName || selectedPatient.title)[0]}
+                <div className="w-11 h-11 rounded-full bg-zinc-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  {(selectedLead.contactName || selectedLead.title)[0]}
                 </div>
                 <div>
-                  <h4 className="font-bold text-on-surface text-base">{selectedPatient.contactName || selectedPatient.title}</h4>
-                  <p className="text-xs text-on-surface-variant font-mono">{selectedPatient.contactNumber || '—'}</p>
+                  <h4 className="font-extrabold text-zinc-900 text-sm">{selectedLead.contactName || selectedLead.title}</h4>
+                  <p className="text-xs text-zinc-500 font-mono">{selectedLead.contactNumber || '—'}</p>
                 </div>
               </div>
               <button
-                onClick={() => setSelectedPatient(null)}
-                className="p-2 hover:bg-surface-container-low rounded-xl transition-all cursor-pointer"
+                onClick={() => setSelectedLead(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-all cursor-pointer"
                 title="Close details"
               >
-                <span className="material-symbols-outlined text-xl text-on-surface-variant">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
             {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-surface border border-outline-variant/30 rounded-xl">
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Deal Value</span>
-                  <span className="text-sm font-extrabold text-emerald-600 font-mono">{fmtMoney(selectedPatient.value)}</span>
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar text-zinc-900 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-xl">
+                  <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Deal Value</span>
+                  <span className="text-base font-bold text-zinc-900 font-mono">{fmtMoney(selectedLead.value)}</span>
                 </div>
-                <div className="p-3 bg-surface border border-outline-variant/30 rounded-xl">
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Current Stage</span>
-                  <span className="text-xs font-bold text-secondary">
-                    {stages.find((s) => s.id === selectedPatient.stageId)?.name || selectedPatient.stageId}
+                <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-xl">
+                  <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Current Stage</span>
+                  <span className="text-xs font-bold text-zinc-900">
+                    {stages.find((s) => s.id === selectedLead.stageId)?.name || selectedLead.stageId}
                   </span>
                 </div>
               </div>
 
-              {/* Patient Attributes */}
-              <div className="p-4 bg-surface border border-outline-variant/30 rounded-xl space-y-3">
-                <h5 className="text-xs font-bold text-on-surface uppercase tracking-wider">Clinical Intake Details</h5>
+              {/* Lead Attributes */}
+              <div className="p-4 bg-zinc-50 border border-zinc-200/80 rounded-xl space-y-3">
+                <h5 className="text-xs font-bold text-zinc-800 uppercase tracking-wider">Enterprise Deal Specs</h5>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-on-surface-variant/70 block text-[10px]">Calculated BMI:</span>
-                    <span className="font-mono font-bold text-on-surface">{selectedPatient.bmi || 28.5}</span>
+                    <span className="text-zinc-400 block text-[10px]">Target Latency:</span>
+                    <span className="font-semibold text-zinc-800">&lt;120ms Voice AI</span>
                   </div>
                   <div>
-                    <span className="text-on-surface-variant/70 block text-[10px]">State:</span>
-                    <span className="font-semibold text-on-surface">{selectedPatient.shippingState || 'Telangana'}</span>
+                    <span className="text-zinc-400 block text-[10px]">Location:</span>
+                    <span className="font-semibold text-zinc-800">{selectedLead.shippingState || 'Telangana / Hyderabad'}</span>
                   </div>
                   <div>
-                    <span className="text-on-surface-variant/70 block text-[10px]">Assigned Staff:</span>
-                    <span className="font-bold text-purple-600">{selectedPatient.assignedUserName || 'Dr. Kalyan'}</span>
+                    <span className="text-zinc-400 block text-[10px]">Assigned Agent:</span>
+                    <span className="font-semibold text-zinc-800">{selectedLead.assignedUserName || 'Voice AI Rep'}</span>
                   </div>
                   <div>
-                    <span className="text-on-surface-variant/70 block text-[10px]">Expected Close:</span>
-                    <span className="font-mono text-on-surface">{selectedPatient.expectedCloseDate || '—'}</span>
+                    <span className="text-zinc-400 block text-[10px]">Expected Close:</span>
+                    <span className="text-zinc-700">{selectedLead.expectedCloseDate || '—'}</span>
                   </div>
                 </div>
               </div>
 
-              {selectedPatient.notes && (
-                <div className="p-4 bg-surface border border-outline-variant/30 rounded-xl space-y-1.5">
-                  <h5 className="text-xs font-bold text-on-surface uppercase tracking-wider">Physician & Intake Notes</h5>
-                  <p className="text-xs text-on-surface-variant leading-relaxed">{selectedPatient.notes}</p>
+              {selectedLead.notes && (
+                <div className="p-4 bg-zinc-50 border border-zinc-200/80 rounded-xl space-y-1.5">
+                  <h5 className="text-xs font-bold text-zinc-800 uppercase tracking-wider">AI Call Summary & Notes</h5>
+                  <p className="text-xs text-zinc-600 leading-relaxed">{selectedLead.notes}</p>
                 </div>
               )}
 
@@ -536,85 +511,85 @@ export default function PipelinesPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!window.confirm(`Verify Method B payment for order #${selectedPatient.id}? This will auto-send the 24-hour dispatch promise to patient.`)) return;
+                    if (!window.confirm(`Verify Enterprise invoice payment for deal #${selectedLead.id}? This will auto-issue the API token.`)) return;
                     try {
                       const res = await fetch('/api/bot/orders', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'verify-payment', orderId: selectedPatient.id }),
+                        body: JSON.stringify({ action: 'verify-payment', orderId: selectedLead.id }),
                       });
                       const data = await res.json();
                       if (data.success) {
                         alert(`✅ ${data.message}`);
-                        setSelectedPatient(null);
+                        setSelectedLead(null);
                         loadPipelineData(selectedPipelineId || undefined);
                       } else alert(data.error || 'Failed');
                     } catch (e) {
                       alert('Verification failed');
                     }
                   }}
-                  className="w-full py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-emerald-600 text-white font-semibold text-xs rounded-xl shadow-xs hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">verified</span>
-                  <span>Verify Method B Payment ✅</span>
+                  <span>Verify Payment ✅</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={async () => {
-                    const courierName = window.prompt('Enter Courier Partner Name (e.g. BlueDart, Delhivery, DTDC):', 'BlueDart');
-                    if (!courierName) return;
-                    const trackingAwb = window.prompt(`Enter AWB Tracking Number for order #${selectedPatient.id}:`, 'BLD90847120');
-                    if (!trackingAwb) return;
+                    const agentModel = window.prompt('Enter Deployed Custom LLM Instance Name (e.g. Llama-3-Sales-FineTune, Gemini-1.5-Pro):', 'Llama-3-Sales-FineTune');
+                    if (!agentModel) return;
+                    const trackingId = window.prompt(`Enter Instance Deployment ID for deal #${selectedLead.id}:`, 'AGY-DEPLOY-9084');
+                    if (!trackingId) return;
 
                     try {
                       const res = await fetch('/api/bot/orders', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'mark-dispatched', orderId: selectedPatient.id, courierName, trackingAwb }),
+                        body: JSON.stringify({ action: 'mark-dispatched', orderId: selectedLead.id, courierName: agentModel, trackingAwb: trackingId }),
                       });
                       const data = await res.json();
                       if (data.success) {
                         alert(`📦 ${data.message}`);
-                        setSelectedPatient(null);
+                        setSelectedLead(null);
                         loadPipelineData(selectedPipelineId || undefined);
                       } else alert(data.error || 'Failed');
                     } catch (e) {
-                      alert('Dispatch update failed');
+                      alert('Deployment update failed');
                     }
                   }}
-                  className="w-full py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md hover:bg-blue-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-zinc-900 text-white font-semibold text-xs rounded-xl shadow-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-sm">local_shipping</span>
-                  <span>Mark Dispatched & Send Tracker 📦</span>
+                  <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                  <span>Deploy Custom LLM Agent Instance 📦</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    const editDeal = selectedPatient;
-                    setSelectedPatient(null);
+                    const editDeal = selectedLead;
+                    setSelectedLead(null);
                     setDealModal({ deal: editDeal, defaultStageId: editDeal.stageId });
                   }}
-                  className="w-full py-2.5 bg-surface-container-high border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-white border border-zinc-200 text-zinc-700 font-semibold text-xs rounded-xl hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <span className="material-symbols-outlined text-sm">edit</span>
+                  <span className="material-symbols-outlined text-sm text-zinc-500">edit</span>
                   <span>Edit Deal Details</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={async () => {
-                    const targetStage = stages.find((s) => s.name.toLowerCase().includes('doctor') || s.name.toLowerCase().includes('review'));
+                    const targetStage = stages.find((s) => s.name.toLowerCase().includes('demo') || s.name.toLowerCase().includes('qualified'));
                     if (targetStage) {
                       await handleDropToStage(targetStage.id);
-                      setSelectedPatient(null);
+                      setSelectedLead(null);
                     }
                   }}
-                  className="w-full py-2.5 bg-secondary text-white font-bold text-xs rounded-xl shadow-md hover:bg-secondary/90 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs rounded-xl hover:bg-zinc-200/70 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <span className="material-symbols-outlined text-sm">local_hospital</span>
-                  <span>Refer to Dr. Kalyan for Medical Assessment</span>
+                  <span className="material-symbols-outlined text-sm text-zinc-600">graphic_eq</span>
+                  <span>Dispatch AI Voice Call</span>
                 </button>
               </div>
             </div>
@@ -681,9 +656,9 @@ function DealModal({
   const editing = !!deal;
   const [form, setForm] = useState({
     title: deal?.title || '',
-    value: deal?.value ?? 14500,
+    value: deal?.value ?? 45000,
     stageId: deal?.stageId || defaultStageId || stages[0]?.id || '',
-    assignedUserId: deal?.assignedUserId || 'doc-1',
+    assignedUserId: deal?.assignedUserId || 'agent-1',
     contactWaNumber: deal?.contactWaNumber || '',
     contactNumber: deal?.contactNumber || '',
     contactName: deal?.contactName || '',
@@ -765,34 +740,34 @@ function DealModal({
   };
 
   return (
-    <ModalShell title={editing ? 'Edit Deal' : 'New Patient Deal'} onClose={onClose}>
+    <ModalShell title={editing ? 'Edit Sales Deal' : 'New Enterprise Sales Deal'} onClose={onClose}>
       <div className="space-y-4">
         <div>
-          <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Title</label>
+          <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Title</label>
           <input
             type="text"
-            className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary"
+            className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="e.g. Kalyan Sontha - Wegovy Intake"
+            placeholder="e.g. Acme Corp - Custom Fine-Tuned Llama-3 Voice Agent"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Value (₹)</label>
+            <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Value (₹)</label>
             <input
               type="number"
-              className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface font-mono outline-none focus:border-secondary"
+              className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400 font-mono"
               value={form.value}
               onChange={(e) => setForm({ ...form, value: Number(e.target.value) })}
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Stage</label>
+            <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Stage</label>
             <select
-              className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary cursor-pointer"
+              className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400 cursor-pointer"
               value={form.stageId}
               onChange={(e) => setForm({ ...form, stageId: e.target.value })}
             >
@@ -807,14 +782,14 @@ function DealModal({
 
         {/* Linked Contact */}
         <div>
-          <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Linked Contact (Optional)</label>
+          <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Linked Lead Contact (Optional)</label>
           {form.contactName || form.contactNumber ? (
-            <div className="flex items-center justify-between p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs">
-              <span className="font-bold text-on-surface">{form.contactName || form.contactNumber}</span>
+            <div className="flex items-center justify-between p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs">
+              <span className="font-bold text-zinc-800">{form.contactName || form.contactNumber}</span>
               <button
                 type="button"
                 onClick={() => setForm({ ...form, contactWaNumber: '', contactNumber: '', contactName: '' })}
-                className="text-error font-bold"
+                className="text-rose-500 font-bold"
               >
                 ✕
               </button>
@@ -823,7 +798,7 @@ function DealModal({
             <div className="relative">
               <input
                 type="text"
-                className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary"
+                className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400"
                 placeholder="Search contacts by name or phone..."
                 value={contactQuery}
                 onFocus={() => setContactOpen(true)}
@@ -833,7 +808,7 @@ function DealModal({
                 }}
               />
               {contactOpen && contactResults.length > 0 && (
-                <div className="absolute top-11 left-0 right-0 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1">
+                <div className="absolute top-11 left-0 right-0 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1">
                   {contactResults.map((c, idx) => (
                     <div
                       key={idx}
@@ -846,10 +821,10 @@ function DealModal({
                         });
                         setContactOpen(false);
                       }}
-                      className="px-3.5 py-2 text-xs hover:bg-surface-container cursor-pointer flex justify-between"
+                      className="px-3.5 py-2 text-xs hover:bg-zinc-50 cursor-pointer flex justify-between"
                     >
-                      <span className="font-bold text-on-surface">{c.name}</span>
-                      <span className="font-mono text-on-surface-variant">{c.contactNumber}</span>
+                      <span className="font-semibold text-zinc-900">{c.name}</span>
+                      <span className="text-zinc-500">{c.contactNumber}</span>
                     </div>
                   ))}
                 </div>
@@ -860,46 +835,47 @@ function DealModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Expected Close</label>
+            <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Expected Close</label>
             <input
               type="date"
-              className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary"
+              className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400"
               value={form.expectedCloseDate}
               onChange={(e) => setForm({ ...form, expectedCloseDate: e.target.value })}
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Assigned Staff</label>
+            <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Assigned Rep / Agent</label>
             <select
-              className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary cursor-pointer"
+              className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400 cursor-pointer"
               value={form.assignedUserId}
               onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
             >
-              <option value="doc-1">Dr. Kalyan (Physician)</option>
-              <option value="staff-1">Telehealth Staff</option>
+              <option value="agent-1">AI Voice Agent (Alpha)</option>
+              <option value="agent-2">WhatsApp Automation Bot</option>
+              <option value="exec-1">Enterprise Account Executive</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Notes</label>
+          <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Notes</label>
           <textarea
             rows={3}
-            className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary"
-            placeholder="Clinical background, dosage details, intake notes..."
+            className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400"
+            placeholder="Enterprise technical requirements, RAG dataset scope, custom LLM fine-tuning details..."
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
           />
         </div>
       </div>
 
-      <div className="flex justify-between items-center mt-6 pt-4 border-t border-outline-variant/20">
+      <div className="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
         {editing ? (
           <button
             type="button"
             onClick={handleDelete}
-            className="px-3.5 py-2 text-xs font-bold text-error bg-error/10 hover:bg-error/20 rounded-xl transition-all"
+            className="px-3.5 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all"
           >
             Delete
           </button>
@@ -911,7 +887,7 @@ function DealModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all"
+            className="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all"
           >
             Cancel
           </button>
@@ -919,7 +895,7 @@ function DealModal({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-xs font-bold text-white bg-secondary hover:bg-secondary/90 rounded-xl transition-all shadow-sm"
+            className="px-4 py-2 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded-xl transition-all shadow-xs"
           >
             {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Deal'}
           </button>
@@ -968,28 +944,28 @@ function PipelineModal({
   };
 
   return (
-    <ModalShell title={mode === 'rename' ? 'Rename Pipeline' : 'New Pipeline'} onClose={onClose}>
+    <ModalShell title={mode === 'rename' ? 'Rename Pipeline' : 'New Sales Pipeline'} onClose={onClose}>
       <div className="space-y-3">
-        <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Pipeline Name</label>
+        <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Pipeline Name</label>
         <input
           type="text"
-          className="w-full p-2.5 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs text-on-surface outline-none focus:border-secondary"
-          placeholder="e.g. Enterprise Telehealth Pipeline"
+          className="w-full p-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-900 outline-none focus:border-zinc-400"
+          placeholder="e.g. Enterprise AI Sales Pipeline"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         {mode === 'create' && (
-          <p className="text-xs text-on-surface-variant/70">
-            Starts with standard clinical stages (New Intake → Doctor Review → Approved → Prescription Sent → Order Placed).
+          <p className="text-xs text-zinc-500">
+            Starts with standard AI sales stages (New Intake → AI Voice Qualified → Demo Scheduled → RAG Audit → Contract Sent → Closed Won).
           </p>
         )}
       </div>
 
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-outline-variant/20">
+      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-zinc-200">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all"
+          className="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all"
         >
           Cancel
         </button>
@@ -997,7 +973,7 @@ function PipelineModal({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 text-xs font-bold text-white bg-secondary hover:bg-secondary/90 rounded-xl transition-all shadow-sm"
+          className="px-4 py-2 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded-xl transition-all shadow-xs"
         >
           {saving ? 'Saving...' : 'Save Pipeline'}
         </button>
@@ -1062,7 +1038,7 @@ function StagesModal({
           pipelineId,
           name: 'New Stage',
           probability: 50,
-          color: '#64748B',
+          color: '#18181b',
           stageType: 'open',
         }),
       });
@@ -1103,18 +1079,18 @@ function StagesModal({
     <ModalShell title={`Manage Stages · ${pipelineName}`} onClose={onClose}>
       <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
         {stagesList.map((stg) => (
-          <div key={stg.id} className="flex items-center gap-2 p-2 bg-surface-container-high border border-outline-variant/30 rounded-xl">
+          <div key={stg.id} className="flex items-center gap-2 p-2 bg-zinc-50 border border-zinc-200 rounded-xl">
             <input
               type="color"
               className="w-7 h-7 rounded border-none bg-transparent cursor-pointer shrink-0"
-              value={stg.color || '#64748B'}
+              value={stg.color || '#18181b'}
               onChange={(e) =>
                 setStagesList((prev) => prev.map((s) => (s.id === stg.id ? { ...s, color: e.target.value } : s)))
               }
             />
             <input
               type="text"
-              className="flex-1 p-1.5 bg-surface border border-outline-variant/30 rounded-lg text-xs font-bold text-on-surface outline-none"
+              className="flex-1 p-1.5 bg-white border border-zinc-200 rounded-lg text-xs font-bold text-zinc-900 outline-none"
               value={stg.name}
               onChange={(e) =>
                 setStagesList((prev) => prev.map((s) => (s.id === stg.id ? { ...s, name: e.target.value } : s)))
@@ -1122,7 +1098,7 @@ function StagesModal({
             />
             <input
               type="number"
-              className="w-16 p-1.5 bg-surface border border-outline-variant/30 rounded-lg text-xs font-mono font-bold text-on-surface text-center outline-none"
+              className="w-16 p-1.5 bg-white border border-zinc-200 rounded-lg text-xs font-bold text-zinc-800 text-center outline-none font-mono"
               value={stg.probability}
               onChange={(e) =>
                 setStagesList((prev) => prev.map((s) => (s.id === stg.id ? { ...s, probability: Number(e.target.value) } : s)))
@@ -1130,7 +1106,7 @@ function StagesModal({
               title="Win Probability %"
             />
             <select
-              className="w-20 p-1.5 bg-surface border border-outline-variant/30 rounded-lg text-xs text-on-surface font-semibold outline-none cursor-pointer"
+              className="w-20 p-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-800 font-semibold outline-none cursor-pointer"
               value={stg.stageType}
               onChange={(e) =>
                 setStagesList((prev) =>
@@ -1146,7 +1122,7 @@ function StagesModal({
               type="button"
               onClick={() => saveStageRow(stg)}
               disabled={busy}
-              className="p-1.5 text-emerald-600 hover:bg-emerald-500/10 rounded-lg"
+              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
               title="Save Stage"
             >
               <span className="material-symbols-outlined text-base">check</span>
@@ -1155,7 +1131,7 @@ function StagesModal({
               type="button"
               onClick={() => deleteStageRow(stg.id)}
               disabled={busy}
-              className="p-1.5 text-error hover:bg-error/10 rounded-lg"
+              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
               title="Delete Stage"
             >
               <span className="material-symbols-outlined text-base">delete</span>
@@ -1164,12 +1140,12 @@ function StagesModal({
         ))}
       </div>
 
-      <div className="flex justify-between items-center mt-6 pt-4 border-t border-outline-variant/20">
+      <div className="flex justify-between items-center mt-6 pt-4 border-t border-zinc-200">
         <button
           type="button"
           onClick={addStageRow}
           disabled={busy}
-          className="px-3.5 py-1.5 text-xs font-bold text-secondary bg-secondary/10 hover:bg-secondary/20 rounded-xl transition-all flex items-center gap-1"
+          className="px-3.5 py-1.5 text-xs font-semibold text-zinc-800 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
         >
           <span className="material-symbols-outlined text-sm">add</span>
           <span>Add Stage</span>
@@ -1177,7 +1153,7 @@ function StagesModal({
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-xs font-bold text-white bg-secondary hover:bg-secondary/90 rounded-xl shadow-sm"
+          className="px-4 py-2 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded-xl shadow-xs cursor-pointer"
         >
           Done
         </button>
@@ -1189,14 +1165,14 @@ function StagesModal({
 /* ----------------------------- Shell Modal ------------------------------- */
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative font-sans"
+        className="bg-white border border-zinc-200 rounded-2xl w-full max-w-lg shadow-xl p-6 relative font-sans text-zinc-900"
       >
-        <div className="flex justify-between items-center mb-4 pb-3 border-b border-outline-variant/20">
-          <h3 className="font-bold text-base text-on-surface">{title}</h3>
-          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface text-lg">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-zinc-200">
+          <h3 className="font-bold text-sm text-zinc-900">{title}</h3>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 text-lg cursor-pointer">
             ✕
           </button>
         </div>

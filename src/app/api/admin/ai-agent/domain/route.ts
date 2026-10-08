@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getActiveDomainProfile, resetDomainProfile } from '@/lib/domain-analyzer';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const profile = getActiveDomainProfile();
@@ -15,7 +17,7 @@ export async function DELETE() {
     const resetProfile = resetDomainProfile();
     return NextResponse.json({
       success: true,
-      message: 'Domain profile reset to default DrGodly GLP-1 Weight Loss baseline',
+      message: 'Domain profile reset to default MotionSites AI Sales Workforce baseline',
       domainProfile: resetProfile,
     });
   } catch (err: any) {

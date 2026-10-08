@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getKnowledgeDocumentsLocal, deleteKnowledgeDocumentAsync } from '@/lib/knowledge-store';
 import { getActiveDomainProfile } from '@/lib/domain-analyzer';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const docs = getKnowledgeDocumentsLocal();
